@@ -1,0 +1,59 @@
+{
+  "kind": "collectionType",
+  "collectionName": "form_datas",
+  "info": {
+    "singularName": "form-data",
+    "pluralName": "form-datas",
+    "displayName": "Form Data"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "website": {
+      "type": "string"
+    },
+    "about": {
+      "type": "text"
+    },
+    "image": {
+      "allowedTypes": [
+        "images"
+      ],
+      "type": "media",
+      "multiple": false
+    },
+    "firstName": {
+      "type": "string"
+    },
+    "lastName": {
+      "type": "string"
+    },
+    "email": {
+      "type": "email"
+    },
+    "country": {
+      "type": "string"
+    },
+    "streetAddress": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "zip": {
+      "type": "string"
+    },
+    "resume": {
+      "allowedTypes": [
+        "files"
+      ],
+      "type": "media",
+      "multiple": false
+    }
+  }
+}
