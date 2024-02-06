@@ -1,6 +1,16 @@
-import { z, ZodErrorMap, SafeParseError, ZodError } from "zod";
+import { z } from "zod";
 import { UserCircleIcon, PaperClipIcon } from "@heroicons/react/24/solid";
-import { Form, useActionData } from "@remix-run/react";
+
+import { uploadImage } from "~/api/upload.server";
+import { strapiPost } from "~/api/strapi-post.server";
+
+import {
+  Form,
+  Link,
+  isRouteErrorResponse,
+  useRouteError,
+  useActionData,
+} from "@remix-run/react";
 
 import {
   type ActionFunctionArgs,
@@ -19,6 +29,7 @@ export const meta: MetaFunction = () => {
 };
 
 const MAX_FILE_SIZE = 5000000;
+
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/jpg",
@@ -70,11 +81,9 @@ export async function action({ request }: ActionFunctionArgs) {
     maxPartSize: 500_000_000,
   });
 
-  if (isMultipart) {
+  if (isMultipart)
     formData = await unstable_parseMultipartFormData(request, uploadHandler);
-  } else {
-    formData = await request.formData();
-  }
+  else formData = await request.formData();
 
   const formItems = Object.fromEntries(formData);
 
@@ -96,22 +105,41 @@ export async function action({ request }: ActionFunctionArgs) {
   if (!validatedFields.success) {
     return json({
       zodErrors: validatedFields.error.flatten().fieldErrors,
-      message: "Missing Fields. Failed to Register.",
+      strapiErrors: null,
+      message: "Missing Fields. Failed to Submit Form.",
     });
   }
 
-  return json({
-    message: "Success",
-    zodErrors: null,
-  });
-}
+  const imageResponse = await uploadImage(validatedFields.data.image);
+  const imageId = imageResponse[0].id;
 
-interface FormSubmitResponse {}
+  const resumeResponse = await uploadImage(validatedFields.data.resume);
+  const resumeId = resumeResponse[0].id;
+
+  const dataToSubmit = {
+    data: {
+      ...validatedFields.data,
+      image: imageId,
+      resume: resumeId,
+    },
+  };
+
+  const strapiResponse = await strapiPost(dataToSubmit, "/api/form-datas");
+
+  if (strapiResponse.data.error) {
+    return json({
+      message: "Failed to Submit Form.",
+      zodErrors: null,
+      strapiErrors: strapiResponse.data.error,
+    });
+  }
+
+  return redirect("/success");
+}
 
 export default function Index() {
   const formData = useActionData<typeof action>();
-  console.log(formData);
-  console.dir(formData, { depth: null });
+
   return (
     <Form
       method="POST"
@@ -165,7 +193,6 @@ export default function Index() {
                   name="about"
                   rows={3}
                   className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                  defaultValue={""}
                 />
               </div>
               <FieldError errorMessages={formData?.zodErrors?.about} />
@@ -336,7 +363,6 @@ export default function Index() {
                   type="text"
                   name="region"
                   id="region"
-                  autoComplete="address-level1"
                   className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 />
               </div>
@@ -355,7 +381,6 @@ export default function Index() {
                   type="text"
                   name="zip"
                   id="zip"
-                  autoComplete="zip"
                   className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 />
               </div>
@@ -427,4 +452,30 @@ function FieldError({
 function StrapiErrors({ error }: { readonly error: string }) {
   if (!error) return null;
   return <div className="text-warning text-xs italic py-2">{error}</div>;
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+
+  if (isRouteErrorResponse(error)) {
+    return (
+      <div className="container mx-auto mt-16 bg-pink-600 text-white p-8 rounded-md">
+        <h1>
+          {error.status} {error.statusText}
+        </h1>
+        <p>{error.data}</p>
+      </div>
+    );
+  } else if (error instanceof Error) {
+    return (
+      <div className="container mx-auto mt-16 bg-pink-600 text-white p-8 rounded-md">
+        <h1>Error</h1>
+        <p>{error.message}</p>
+        <p>The stack trace is:</p>
+        <Link to="/">Back To Safety</Link>
+      </div>
+    );
+  } else {
+    return <h1>Unknown Error</h1>;
+  }
 }
