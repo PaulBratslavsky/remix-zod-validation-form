@@ -75,8 +75,6 @@ export async function action({ request }: ActionFunctionArgs) {
     .get("Content-Type")
     ?.includes("multipart");
 
-  console.log(isMultipart, "is it though");
-
   const uploadHandler = unstable_createMemoryUploadHandler({
     maxPartSize: 500_000_000,
   });
@@ -173,7 +171,7 @@ export default function Index() {
                     name="website"
                     id="website"
                     className="flex-1 border-0 bg-transparent py-1.5 pl-4 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6"
-                    placeholder="www.example.com"
+                    placeholder="https://www.example.com"
                   />
                 </div>
                 <FieldError errorMessages={formData?.zodErrors?.website} />
@@ -433,17 +431,10 @@ export default function Index() {
   );
 }
 
-function FieldError({
-  errorMessages,
-}: {
-  readonly errorMessages: string[] | undefined;
-}) {
+function FieldError({ errorMessages }: { readonly errorMessages: string[] | undefined }) {
   if (!errorMessages || undefined) return null;
   return errorMessages.map((err: string, index: number) => (
-    <div
-      key={index}
-      className="text-warning text-xs italic mt-1 px-2 text-pink-600"
-    >
+    <div key={index} className="text-warning text-xs italic mt-1 px-2 text-pink-600">
       {err}
     </div>
   ));
