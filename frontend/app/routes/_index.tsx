@@ -9,7 +9,6 @@ import {
   json,
   unstable_createMemoryUploadHandler,
   unstable_parseMultipartFormData,
-  TypedResponse,
 } from "@remix-run/node";
 
 export const meta: MetaFunction = () => {
@@ -19,7 +18,7 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-const MAX_FILE_SIZE = 500000;
+const MAX_FILE_SIZE = 5000000;
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/jpg",
@@ -27,39 +26,33 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/webp",
 ];
 
-const ACCEPTED_DOC_TYPES = ["files/pdf"];
+const ACCEPTED_DOC_TYPES = ["application/pdf"];
 
 const schemaRegister = z.object({
-  website: z.string(),
-  about: z.string(),
-  firstName: z.string(),
-  lastName: z.string(),
-  email: z.string().email(),
-  country: z.string(),
-  streetAddress: z.string(),
-  city: z.string(),
-  state: z.string(),
-  zip: z.string(),
+  website: z.string().url().min(5).max(50),
+  about: z.string().min(5).max(144),
+  firstName: z.string().min(2).max(20),
+  lastName: z.string().min(2).max(20),
+  email: z.string().email().min(5).max(50),
+  country: z.string().min(2).max(20),
+  streetAddress: z.string().min(5),
+  city: z.string().min(2).max(20),
+  state: z.string().min(2).max(20),
+  zip: z.string().min(5).max(10),
   image: z
     .any()
-    .refine((files) => files?.length == 1, "Image is required.")
+    .refine((file) => Boolean(file?._name), "Image is required.")
+    .refine((file) => file.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
     .refine(
-      (files) => files?.[0]?.size <= MAX_FILE_SIZE,
-      `Max file size is 5MB.`
-    )
-    .refine(
-      (files) => ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type),
+      (file) => ACCEPTED_IMAGE_TYPES.includes(file?.type),
       ".jpg, .jpeg, .png and .webp files are accepted."
     ),
   resume: z
     .any()
-    .refine((files) => files?.length == 1, "Image is required.")
+    .refine((file) => Boolean(file?._name), "File is required.")
+    .refine((file) => file.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
     .refine(
-      (files) => files?.[0]?.size <= MAX_FILE_SIZE,
-      `Max file size is 5MB.`
-    )
-    .refine(
-      (files) => ACCEPTED_DOC_TYPES.includes(files?.[0]?.type),
+      (file) => ACCEPTED_DOC_TYPES.includes(file?.type),
       "Only PDF's are accepted."
     ),
 });
@@ -70,6 +63,8 @@ export async function action({ request }: ActionFunctionArgs) {
   const isMultipart = request.headers
     .get("Content-Type")
     ?.includes("multipart");
+
+  console.log(isMultipart, "is it though");
 
   const uploadHandler = unstable_createMemoryUploadHandler({
     maxPartSize: 500_000_000,
@@ -86,7 +81,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const validatedFields = schemaRegister.safeParse({
     website: formItems.website,
     about: formItems.about,
-    firstName: formItems.firsName,
+    firstName: formItems.firstName,
     lastName: formItems.lastName,
     email: formItems.email,
     country: formItems.country,
@@ -94,7 +89,7 @@ export async function action({ request }: ActionFunctionArgs) {
     city: formItems.city,
     state: formItems.region,
     zip: formItems.zip,
-    image: formItems.photo,
+    image: formItems.image,
     resume: formItems.resume,
   });
 
@@ -105,7 +100,6 @@ export async function action({ request }: ActionFunctionArgs) {
     });
   }
 
-  console.log(formItems);
   return json({
     message: "Success",
     zodErrors: null,
@@ -117,6 +111,7 @@ interface FormSubmitResponse {}
 export default function Index() {
   const formData = useActionData<typeof action>();
   console.log(formData);
+  console.dir(formData, { depth: null });
   return (
     <Form
       method="POST"
@@ -145,18 +140,15 @@ export default function Index() {
               </label>
               <div className="mt-2">
                 <div className="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600 sm:max-w-md">
-                  <span className="flex select-none items-center pl-3 text-gray-500 sm:text-sm">
-                    http://
-                  </span>
                   <input
                     type="text"
                     name="website"
                     id="website"
-                    className="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6"
+                    className="flex-1 border-0 bg-transparent py-1.5 pl-4 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6"
                     placeholder="www.example.com"
-                    required
                   />
                 </div>
+                <FieldError errorMessages={formData?.zodErrors?.website} />
               </div>
             </div>
 
@@ -176,7 +168,7 @@ export default function Index() {
                   defaultValue={""}
                 />
               </div>
-              <FieldError error={formData?.zodErrors?.about} />
+              <FieldError errorMessages={formData?.zodErrors?.about} />
               <p className="mt-3 text-sm leading-6 text-gray-600">
                 Write a few sentences about yourself.
               </p>
@@ -199,10 +191,13 @@ export default function Index() {
                     <input
                       type="file"
                       className="mt-2 flex items-center gap-x-3"
+                      name="image"
+                      multiple
                     />
                   </div>
                 </div>
               </div>
+              <FieldError errorMessages={formData?.zodErrors?.image} />
             </div>
           </div>
         </div>
@@ -220,7 +215,7 @@ export default function Index() {
           <div className="grid max-w-2xl grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 md:col-span-2">
             <div className="sm:col-span-3">
               <label
-                htmlFor="first-name"
+                htmlFor="firstName"
                 className="block text-sm font-medium leading-6 text-gray-900"
               >
                 First name
@@ -233,6 +228,7 @@ export default function Index() {
                   className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 />
               </div>
+              <FieldError errorMessages={formData?.zodErrors?.firstName} />
             </div>
 
             <div className="sm:col-span-3">
@@ -250,6 +246,7 @@ export default function Index() {
                   className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 />
               </div>
+              <FieldError errorMessages={formData?.zodErrors?.lastName} />
             </div>
 
             <div className="sm:col-span-4">
@@ -267,6 +264,7 @@ export default function Index() {
                   className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 />
               </div>
+              <FieldError errorMessages={formData?.zodErrors?.email} />
             </div>
 
             <div className="sm:col-span-3">
@@ -287,11 +285,12 @@ export default function Index() {
                   <option>Mexico</option>
                 </select>
               </div>
+              <FieldError errorMessages={formData?.zodErrors?.country} />
             </div>
 
             <div className="col-span-full">
               <label
-                htmlFor="street-address"
+                htmlFor="streetAddress"
                 className="block text-sm font-medium leading-6 text-gray-900"
               >
                 Street address
@@ -299,11 +298,12 @@ export default function Index() {
               <div className="mt-2">
                 <input
                   type="text"
-                  name="address"
-                  id="address"
+                  name="streetAddress"
+                  id="streetAddress"
                   className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 />
               </div>
+              <FieldError errorMessages={formData?.zodErrors?.streetAddress} />
             </div>
 
             <div className="sm:col-span-2 sm:col-start-1">
@@ -321,6 +321,7 @@ export default function Index() {
                   className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 />
               </div>
+              <FieldError errorMessages={formData?.zodErrors?.city} />
             </div>
 
             <div className="sm:col-span-2">
@@ -339,11 +340,12 @@ export default function Index() {
                   className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 />
               </div>
+              <FieldError errorMessages={formData?.zodErrors?.state} />
             </div>
 
             <div className="sm:col-span-2">
               <label
-                htmlFor="postal-code"
+                htmlFor="zip"
                 className="block text-sm font-medium leading-6 text-gray-900"
               >
                 ZIP / Postal code
@@ -351,12 +353,13 @@ export default function Index() {
               <div className="mt-2">
                 <input
                   type="text"
-                  name="postal-code"
-                  id="postal-code"
-                  autoComplete="postal-code"
+                  name="zip"
+                  id="zip"
+                  autoComplete="zip"
                   className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 />
               </div>
+              <FieldError errorMessages={formData?.zodErrors?.zip} />
             </div>
 
             <div className="col-span-full rounded-md border border-gray-200 w-full">
@@ -376,10 +379,12 @@ export default function Index() {
                     <input
                       type="file"
                       className="mt-2 flex items-center gap-x-3"
+                      name="resume"
                     />
                   </div>
                 </div>
               </div>
+              <FieldError errorMessages={formData?.zodErrors?.resume} />
             </div>
           </div>
         </div>
@@ -403,10 +408,17 @@ export default function Index() {
   );
 }
 
-function FieldError({ error }: { readonly error: any }) {
-  if (!error) return null;
-  return error.map((err: string, index: number) => (
-    <div key={index} className="text-warning text-xs italic mt-1 py-2">
+function FieldError({
+  errorMessages,
+}: {
+  readonly errorMessages: string[] | undefined;
+}) {
+  if (!errorMessages || undefined) return null;
+  return errorMessages.map((err: string, index: number) => (
+    <div
+      key={index}
+      className="text-warning text-xs italic mt-1 px-2 text-pink-600"
+    >
       {err}
     </div>
   ));
