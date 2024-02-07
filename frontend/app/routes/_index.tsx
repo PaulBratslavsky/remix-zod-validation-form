@@ -68,7 +68,6 @@ const schemaRegister = z.object({
     ),
 });
 
-
 export async function action({ request }: ActionFunctionArgs) {
   let formData;
 
@@ -432,10 +431,17 @@ export default function Index() {
   );
 }
 
-function FieldError({ errorMessages }: { readonly errorMessages: string[] | undefined }) {
+function FieldError({
+  errorMessages,
+}: {
+  readonly errorMessages: string[] | undefined;
+}) {
   if (!errorMessages || undefined) return null;
   return errorMessages.map((err: string, index: number) => (
-    <div key={index} className="text-warning text-xs italic mt-1 px-2 text-pink-600">
+    <div
+      key={index}
+      className="text-warning text-xs italic mt-1 px-2 text-pink-600"
+    >
       {err}
     </div>
   ));

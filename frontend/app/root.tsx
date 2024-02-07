@@ -1,5 +1,6 @@
 import type { LinksFunction } from "@remix-run/node";
 import {
+  Link,
   Links,
   LiveReload,
   Meta,
@@ -10,9 +11,7 @@ import {
 
 import styles from "./tailwind.css";
 
-export const links: LinksFunction = () => [
-  { rel: "stylesheet", href: styles },
-];
+export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
 
 export default function App() {
   return (
@@ -24,6 +23,19 @@ export default function App() {
         <Links />
       </head>
       <body className="w-[960px] mx-auto bg-slate-50">
+        <nav className="bg-white text-black p-4 mt-4">
+          <ul>
+            <li>
+              <Link to="/">Main Form</Link>
+            </li>
+            <li>
+              <Link to="simple-form">Simple Form</Link>
+            </li>
+            <li>
+              <Link to="/simple-zod-form">Zod Form</Link>
+            </li>
+          </ul>
+        </nav>
         <Outlet />
         <ScrollRestoration />
         <Scripts />
