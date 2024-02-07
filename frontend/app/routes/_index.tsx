@@ -68,6 +68,7 @@ const schemaRegister = z.object({
     ),
 });
 
+
 export async function action({ request }: ActionFunctionArgs) {
   let formData;
 
